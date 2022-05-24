@@ -1,0 +1,146 @@
+#!/bin/bash
+
+#ARGUMENTS
+#$1 sda/nvme0n1
+#$2 "p" for nvme
+#$3 pass for crypt and base root
+#$4 hostname
+#$5 name user
+#$6 pass user
+
+
+
+#sgdisk --zap-all /dev/sda
+echo "-----------------------------------Do o gdisk--------------------------------------"
+printf "o\ny\nw\ny\n" | gdisk /dev/$1
+echo "-----------------------------------------------------------------------------------"
+echo "-------------------------------CREATE EFI 512M-------------------------------------"
+echo "-----------------------------------------------------------------------------------"
+printf "n\n1\n\n+512M\nef00\nw\ny\n" | gdisk /dev/$1
+echo "-----------------------------------------------------------------------------------"
+echo "-------------------------------------DONE------------------------------------------"
+echo "-----------------------------------------------------------------------------------"
+echo "-------------------------------CREATE BOOT----------------------------------------"
+echo "-----------------------------------------------------------------------------------"
+printf "n\n2\n\n+1G\n\nw\ny\n" | gdisk /dev/$1
+echo "-------------------------------CREATE SWAP 8G--------------------------------------"
+echo "-----------------------------------------------------------------------------------"
+printf "n\n3\n\n+8G\n8200\nw\ny\n" | gdisk /dev/$1
+echo "-----------------------------------------------------------------------------------"
+echo "--------------------------------SWAPON DONE----------------------------------------"
+echo "-----------------------------------------------------------------------------------"
+echo "-------------------------------CREATE BTRFS----------------------------------------"
+echo "-----------------------------------------------------------------------------------"
+printf "n\n4\n\n\n\nw\ny\n" | gdisk /dev/$1
+echo "-----------------------------------------------------------------------------------"
+echo "--------------------------------DONE BTRFS-----------------------------------------"
+echo "-----------------------------------------------------------------------------------"
+
+yes | mkfs.fat -F32 /dev/${1}${2}1 #p1
+yes | mkfs.ext2 /dev/${1}${2}2     #p2
+yes | mkswap /dev/${1}${2}3		  #p3
+swapon /dev/${1}${2}3              #p3
+
+
+#######
+#ENCRYPT############
+#############
+echo "Setting up encryption"
+printf "${3}" | cryptsetup luksFormat /dev/${1}${2}4
+printf "${3}" | cryptsetup luksOpen /dev/${1}${2}4 cryptroot
+yes | mkfs.btrfs -f /dev/mapper/cryptroot
+mount /dev/mapper/cryptroot /mnt
+btrfs su cr /mnt/@
+btrfs su cr /mnt/@home
+umount /mnt
+mount -o noatime,compress=zstd:2,space_cache=v2,discard=async,subvol=@ /dev/mapper/cryptroot /mnt
+mkdir -p /mnt/{boot,home}
+mount -o noatime,compress=zstd:2,space_cache=v2,discard=async,subvol=@home /dev/mapper/cryptroot /mnt/home
+mount /dev/${1}${2}2 /mnt/boot
+mkdir -p /mnt/boot/EFI
+mount /dev/${1}${2}1 /mnt/boot/EFI
+
+
+
+yes | pacstrap /mnt base linux linux-firmware intel-ucode btrfs-progs
+genfstab -U /mnt >> /mnt/etc/fstab
+
+###############################
+#### Configure base system ####
+###############################
+
+arch-chroot /mnt /bin/bash <<EOF
+echo "Setting time zone"
+ln -sf /usr/share/zoneinfo/Europe/Moscow /etc/localtime
+hwclock --systohc
+echo "Setting and generating locale"
+echo "en_US.UTF-8 UTF-8" > /etc/locale.gen
+echo "ru_RU.UTF-8 UTF-8" >> /etc/locale.gen
+locale-gen
+echo "LANG=us_US.UTF-8" >> /etc/locale.conf
+echo "Setting hostname"
+echo "${4}" > /etc/hostname
+echo "${4}"
+echo "Setting hosts"
+echo "127.0.0.1     localhost" >> /etc/hosts
+echo "::1     localhost" >> /etc/hosts
+echo "127.0.0.1     ${4}.localdomain     ${4}" >> /etc/hosts
+echo "Setting root password"
+echo "root:${3}" | chpasswd
+pacman --noconfirm -S grub efibootmgr networkmanager vim nano git network-manager-applet dialog mtools dosfstools bluez bluez-utils alsa-utils pulseaudio pulseaudio-bluetooth base-devel linux-headers zsh modemmanager usb_modeswitch
+echo "Generating initramfs"
+cp /etc/mkinitcpio.conf /etc/mkinitcpio.conf.b
+sed -i 's/^MODULES.*/MODULES=(btrfs)/' /etc/mkinitcpio.conf
+sed -i 's/^HOOKS.*/HOOKS="base udev autodetect modconf block encrypt filesystems keyboard"/' /etc/mkinitcpio.conf
+mkinitcpio -p linux
+grub-install --target=x86_64-efi --bootloader-id=grub_uefi --recheck
+grub-mkconfig -o /boot/grub/grub.cfg
+systemctl enable NetworkManager
+systemctl enable bluetooth
+systemctl enable ModemManager.service
+echo "GENERATEUSER"
+echo "%wheel ALL=(ALL:ALL) ALL" >> /etc/sudoers
+useradd --create-home ${5}
+echo ${5}:${6} | chpasswd
+usermod -aG wheel max
+systemctl enable sshd
+echo "YAY CD"
+cd /opt
+echo "YAY CLONE"
+git clone https://aur.archlinux.org/yay-git.git
+chown -R max:max ./yay-git
+cd /opt/yay-git
+sed -i 's/^GRUB_CMDLINE_LINUX_DEFAULT.*/GRUB_CMDLINE_LINUX_DEFAULT="loglevel=3 quiet cryptdevice=UUID='$(blkid -s UUID -o value /dev/${1}${2}4)':cryptroot root=\/dev\/mapper\/cryptroot"/' /etc/default/grub
+echo "GRUB_ENABLE_CRYPTODISK=y" >> /etc/default/grub
+grub-mkconfig -o /boot/grub/grub.cfg
+su max
+yes | makepkg -si
+EOF
+
+#blkid uuid sda/nvme 1 add to /etc/fstab
+
+
+
+
+
+
+
+
+
+#grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=GRUB
+#umount -R /mnt
+#blkid uuid /dev/sda4/ copy to nano /etc/default/grub
+#GRUB_CMDLINE_LINUX_DEFAULT="loglevel=3 quiet cryptdevice=UUID=37fedf47-45be-4fda-ac60-5466fa46ed3d:cryptroot root=/dev/mapper/cryptroot"
+#grub-mkconfig -o /boot/grub/grub.cfg
+#sudo reflector --verbose --country 'Russia' -l 5 --sort rate --save /etc/pacman.d/mirrorlist
+#blkid -s UUID -o value /dev/sda1
+# dd if=/dev/zero of=/dev/sda bs=500M count=1 dd if=/dev/zero of=/dev/sda bs=8M count=4
+#yes | mkfs.btrfs -f /dev/sda3
+#mount /dev/sda3 /mnt
+#btrfs su cr /mnt/@
+#btrfs su cr /mnt/@home
+#umount /mnt
+#mount -o noatime,compress=zstd:2,space_cache=v2,discard=async,subvol=@ /dev/sda3 /mnt
+#mkdir -p /mnt/{boot/efi,home}
+#mount -o noatime,compress=zstd:2,space_cache=v2,discard=async,subvol=@home /dev/sda3 /mnt/home
+#mount /dev/sda1 /mnt/boot/efi
