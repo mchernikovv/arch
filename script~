@@ -124,6 +124,9 @@ useradd --create-home ${uservar}
 echo ${uservar}:${userpassvar} | chpasswd
 usermod -aG wheel ${uservar}
 systemctl enable sshd
+localectl set-locale ru_RU.UTF-8
+echo "FONT=cyr-sun16" >> /etc/vconsole.conf
+echo "KEYMAP=ru"  >> /etc/vconsole.conf
 echo "YAY CD"
 cd /opt
 echo "YAY CLONE"
