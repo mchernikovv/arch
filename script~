@@ -7,47 +7,67 @@
 #$4 hostname
 #$5 name user
 #$6 pass user
+#!/bin/bash
 
+echo "HELLO"
+read -p 'Please write the name of the disk where the system will be installed (use lsblk example:sda/nvme0n1) : ' diskvar
+read -sp 'Password for disk encryption: ' passdiskvar
+echo
+read -p 'Write hostname(example:mypc) : ' hostnamevar
+read -sp 'Password for root user : ' passrootvar
+echo
+read -p 'Write username : ' uservar
+read -sp 'Password for user: ' userpassvar
+echo
+if [ "${diskvar::-3}" == "nvme" ]; then
+  ndiskvar=${diskvar}'p'
+  echo 'Disk is : '${ndiskvar::-1}
+else
+  ndiskvar=${diskvar}
+  echo 'DisK is : '$diskvar
+fi
+
+echo ndiskvar $ndiskvar $diskvar $passdiskvar $hostname $passrootvar $uservar $userpassvar
 
 
 #sgdisk --zap-all /dev/sda
 echo "-----------------------------------Do o gdisk--------------------------------------"
-printf "o\ny\nw\ny\n" | gdisk /dev/$1
+printf "o\ny\nw\ny\n" | gdisk /dev/$diskvar
 echo "-----------------------------------------------------------------------------------"
 echo "-------------------------------CREATE EFI 512M-------------------------------------"
 echo "-----------------------------------------------------------------------------------"
-printf "n\n1\n\n+512M\nef00\nw\ny\n" | gdisk /dev/$1
+printf "n\n1\n\n+512M\nef00\nw\ny\n" | gdisk /dev/$diskvar
 echo "-----------------------------------------------------------------------------------"
 echo "-------------------------------------DONE------------------------------------------"
 echo "-----------------------------------------------------------------------------------"
 echo "-------------------------------CREATE BOOT----------------------------------------"
 echo "-----------------------------------------------------------------------------------"
-printf "n\n2\n\n+1G\n\nw\ny\n" | gdisk /dev/$1
+printf "n\n2\n\n+1G\n\nw\ny\n" | gdisk /dev/$diskvar
 echo "-------------------------------CREATE SWAP 8G--------------------------------------"
 echo "-----------------------------------------------------------------------------------"
-printf "n\n3\n\n+8G\n8200\nw\ny\n" | gdisk /dev/$1
+printf "n\n3\n\n+8G\n8200\nw\ny\n" | gdisk /dev/$diskvar
 echo "-----------------------------------------------------------------------------------"
 echo "--------------------------------SWAPON DONE----------------------------------------"
 echo "-----------------------------------------------------------------------------------"
 echo "-------------------------------CREATE BTRFS----------------------------------------"
 echo "-----------------------------------------------------------------------------------"
-printf "n\n4\n\n\n\nw\ny\n" | gdisk /dev/$1
+printf "n\n4\n\n\n\nw\ny\n" | gdisk /dev/$diskvar
 echo "-----------------------------------------------------------------------------------"
 echo "--------------------------------DONE BTRFS-----------------------------------------"
 echo "-----------------------------------------------------------------------------------"
 
-yes | mkfs.fat -F32 /dev/${1}${2}1 #p1
-yes | mkfs.ext2 /dev/${1}${2}2     #p2
-yes | mkswap /dev/${1}${2}3		  #p3
-swapon /dev/${1}${2}3              #p3
+yes | mkfs.fat -F32 /dev/${ndiskvar}1 #p1
+yes | mkfs.ext2 /dev/${ndiskvar}2     #p2
+yes | mkswap /dev/${ndiskvar}3		  #p3
+swapon /dev/${ndiskvar}3              #p3
 
 
 #######
 #ENCRYPT############
 #############
 echo "Setting up encryption"
-printf "${3}" | cryptsetup luksFormat /dev/${1}${2}4
-printf "${3}" | cryptsetup luksOpen /dev/${1}${2}4 cryptroot
+printf "${passdiskvar}" | cryptsetup luksFormat /dev/${ndiskvar}4
+printf "${passdiskvar}" | cryptsetup luksOpen /dev/${ndiskvar}4 cryptroot
 yes | mkfs.btrfs -f /dev/mapper/cryptroot
 mount /dev/mapper/cryptroot /mnt
 btrfs su cr /mnt/@
@@ -56,9 +76,9 @@ umount /mnt
 mount -o noatime,compress=zstd:2,space_cache=v2,discard=async,subvol=@ /dev/mapper/cryptroot /mnt
 mkdir -p /mnt/{boot,home}
 mount -o noatime,compress=zstd:2,space_cache=v2,discard=async,subvol=@home /dev/mapper/cryptroot /mnt/home
-mount /dev/${1}${2}2 /mnt/boot
+mount /dev/${ndiskvar}2 /mnt/boot
 mkdir -p /mnt/boot/EFI
-mount /dev/${1}${2}1 /mnt/boot/EFI
+mount /dev/${ndiskvar}1 /mnt/boot/EFI
 
 
 
@@ -79,14 +99,14 @@ echo "ru_RU.UTF-8 UTF-8" >> /etc/locale.gen
 locale-gen
 echo "LANG=us_US.UTF-8" >> /etc/locale.conf
 echo "Setting hostname"
-echo "${4}" > /etc/hostname
-echo "${4}"
+echo "${hostname}" > /etc/hostname
+echo "${hostname}"
 echo "Setting hosts"
 echo "127.0.0.1     localhost" >> /etc/hosts
 echo "::1     localhost" >> /etc/hosts
-echo "127.0.0.1     ${4}.localdomain     ${4}" >> /etc/hosts
+echo "127.0.0.1     ${hostname}.localdomain     ${hostname}" >> /etc/hosts
 echo "Setting root password"
-echo "root:${3}" | chpasswd
+echo "root:${passrootvar}" | chpasswd
 pacman --noconfirm -S grub efibootmgr networkmanager vim nano git network-manager-applet dialog mtools dosfstools bluez bluez-utils alsa-utils pulseaudio pulseaudio-bluetooth base-devel linux-headers zsh modemmanager usb_modeswitch
 echo "Generating initramfs"
 cp /etc/mkinitcpio.conf /etc/mkinitcpio.conf.b
@@ -100,20 +120,20 @@ systemctl enable bluetooth
 systemctl enable ModemManager.service
 echo "GENERATEUSER"
 echo "%wheel ALL=(ALL:ALL) ALL" >> /etc/sudoers
-useradd --create-home ${5}
-echo ${5}:${6} | chpasswd
-usermod -aG wheel ${5}
+useradd --create-home ${uservar}
+echo ${uservar}:${userpassvar} | chpasswd
+usermod -aG wheel ${uservar}
 systemctl enable sshd
 echo "YAY CD"
 cd /opt
 echo "YAY CLONE"
 git clone https://aur.archlinux.org/yay-git.git
-chown -R ${5}:${5} ./yay-git
+chown -R ${uservar}:${uservar} ./yay-git
 cd /opt/yay-git
-sed -i 's/^GRUB_CMDLINE_LINUX_DEFAULT.*/GRUB_CMDLINE_LINUX_DEFAULT="loglevel=3 quiet cryptdevice=UUID='$(blkid -s UUID -o value /dev/${1}${2}4)':cryptroot root=\/dev\/mapper\/cryptroot"/' /etc/default/grub
+sed -i 's/^GRUB_CMDLINE_LINUX_DEFAULT.*/GRUB_CMDLINE_LINUX_DEFAULT="loglevel=3 quiet cryptdevice=UUID='$(blkid -s UUID -o value /dev/${ndiskvar}4)':cryptroot root=\/dev\/mapper\/cryptroot"/' /etc/default/grub
 echo "GRUB_ENABLE_CRYPTODISK=y" >> /etc/default/grub
 grub-mkconfig -o /boot/grub/grub.cfg
-su ${5}
+su ${uservar}
 yes | makepkg -si
 EOF
 
