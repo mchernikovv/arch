@@ -27,7 +27,7 @@ else
   echo 'DisK is : '$diskvar
 fi
 
-echo ndiskvar $ndiskvar $diskvar $passdiskvar $hostname $passrootvar $uservar $userpassvar
+echo ndiskvar $ndiskvar $diskvar $passdiskvar $hostnamevar $passrootvar $uservar $userpassvar
 
 
 #sgdisk --zap-all /dev/sda
@@ -99,12 +99,12 @@ echo "ru_RU.UTF-8 UTF-8" >> /etc/locale.gen
 locale-gen
 echo "LANG=us_US.UTF-8" >> /etc/locale.conf
 echo "Setting hostname"
-echo "${hostname}" > /etc/hostname
-echo "${hostname}"
+echo "${hostnamevar}" > /etc/hostname
+echo "${hostnamevar}"
 echo "Setting hosts"
 echo "127.0.0.1     localhost" >> /etc/hosts
 echo "::1     localhost" >> /etc/hosts
-echo "127.0.0.1     ${hostname}.localdomain     ${hostname}" >> /etc/hosts
+echo "127.0.0.1     ${hostnamevar}.localdomain     ${hostnamevar}" >> /etc/hosts
 echo "Setting root password"
 echo "root:${passrootvar}" | chpasswd
 pacman --noconfirm -S grub efibootmgr networkmanager vim nano git network-manager-applet dialog mtools dosfstools bluez bluez-utils alsa-utils pulseaudio pulseaudio-bluetooth base-devel linux-headers zsh modemmanager usb_modeswitch
