@@ -107,7 +107,7 @@ echo "::1     localhost" >> /etc/hosts
 echo "127.0.0.1     ${hostnamevar}.localdomain     ${hostnamevar}" >> /etc/hosts
 echo "Setting root password"
 echo "root:${passrootvar}" | chpasswd
-pacman --noconfirm -S grub efibootmgr networkmanager vim nano git network-manager-applet dialog mtools dosfstools bluez bluez-utils alsa-utils pulseaudio pulseaudio-bluetooth base-devel linux-headers zsh modemmanager usb_modeswitch
+pacman --noconfirm -S grub efibootmgr networkmanager vim nano git bat network-manager-applet dialog mtools dosfstools bluez bluez-utils alsa-utils pulseaudio pulseaudio-bluetooth base-devel linux-headers zsh modemmanager usb_modeswitch
 echo "Generating initramfs"
 cp /etc/mkinitcpio.conf /etc/mkinitcpio.conf.b
 sed -i 's/^MODULES.*/MODULES=(btrfs)/' /etc/mkinitcpio.conf
