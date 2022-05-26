@@ -94,10 +94,9 @@ echo "Setting time zone"
 ln -sf /usr/share/zoneinfo/Europe/Moscow /etc/localtime
 hwclock --systohc
 echo "Setting and generating locale"
-echo "en_US.UTF-8 UTF-8" > /etc/locale.gen
 echo "ru_RU.UTF-8 UTF-8" >> /etc/locale.gen
 locale-gen
-echo "ru_RU.UTF-8 UTF-8" >> /etc/locale.conf
+echo "LANG=ru_RU.UTF-8" >> /etc/locale.conf
 echo "Setting hostname"
 echo "${hostnamevar}" > /etc/hostname
 echo "${hostnamevar}"
@@ -146,7 +145,7 @@ EOF
 
 
 
-
+#echo "en_US.UTF-8 UTF-8" > /etc/locale.gen
 
 
 
