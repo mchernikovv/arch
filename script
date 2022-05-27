@@ -1,14 +1,5 @@
 #!/bin/bash
 
-#ARGUMENTS
-#$1 sda/nvme0n1
-#$2 "p" for nvme
-#$3 pass for crypt and base root
-#$4 hostname
-#$5 name user
-#$6 pass user
-#!/bin/bash
-
 echo "HELLO"
 read -p 'Please write the name of the disk where the system will be installed (use lsblk example:sda/nvme0n1) : ' diskvar
 read -sp 'Password for disk encryption: ' passdiskvar
@@ -26,9 +17,6 @@ else
   ndiskvar=${diskvar}
   echo 'DisK is : '$diskvar
 fi
-
-echo ndiskvar $ndiskvar $diskvar $passdiskvar $hostnamevar $passrootvar $uservar $userpassvar
-
 
 #sgdisk --zap-all /dev/sda
 echo "-----------------------------------Do o gdisk--------------------------------------"
@@ -60,8 +48,6 @@ yes | mkfs.fat -F32 /dev/${ndiskvar}1 #p1
 yes | mkfs.ext2 /dev/${ndiskvar}2     #p2
 yes | mkswap /dev/${ndiskvar}3		  #p3
 swapon /dev/${ndiskvar}3              #p3
-
-
 #######
 #ENCRYPT############
 #############
@@ -79,9 +65,6 @@ mount -o noatime,compress=zstd:2,space_cache=v2,discard=async,subvol=@home /dev/
 mount /dev/${ndiskvar}2 /mnt/boot
 mkdir -p /mnt/boot/EFI
 mount /dev/${ndiskvar}1 /mnt/boot/EFI
-
-
-
 yes | pacstrap /mnt base linux linux-firmware intel-ucode btrfs-progs
 genfstab -U /mnt >> /mnt/etc/fstab
 
@@ -90,51 +73,52 @@ genfstab -U /mnt >> /mnt/etc/fstab
 ###############################
 
 arch-chroot /mnt /bin/bash <<EOF
-echo "Setting time zone"
+echo "-----------Setting time zone--------------------"
 ln -sf /usr/share/zoneinfo/Europe/Moscow /etc/localtime
 hwclock --systohc
-echo "Setting and generating locale"
-echo "ru_RU.UTF-8 UTF-8" >> /etc/locale.gen
-locale-gen
+echo "---------Locale conf----------------------------"
 echo "LANG=ru_RU.UTF-8" >> /etc/locale.conf
-echo "Setting hostname"
+echo "KEYMAP=ru"  >> /etc/vconsole.conf
+echo "FONT=cyr-sun16" >> /etc/vconsole.conf
+echo "--------Setting and generating locale-----------"
+echo "ru_RU.UTF-8 UTF-8" >> /etc/locale.gen
+echo "en_EN.UTF-8 UTF-8" >> /etc/locale.gen
+locale-gen
+echo "---------Setting hostname-----------------------"
 echo "${hostnamevar}" > /etc/hostname
 echo "${hostnamevar}"
-echo "Setting hosts"
+echo "-----------Setting hosts------------------------"
 echo "127.0.0.1     localhost" >> /etc/hosts
 echo "::1     localhost" >> /etc/hosts
 echo "127.0.0.1     ${hostnamevar}.localdomain     ${hostnamevar}" >> /etc/hosts
-echo "Setting root password"
+echo "---------Setting root password------------------"
 echo "root:${passrootvar}" | chpasswd
 pacman --noconfirm -S grub efibootmgr networkmanager vim nano git bat network-manager-applet dialog mtools dosfstools bluez bluez-utils alsa-utils pulseaudio pulseaudio-bluetooth base-devel linux-headers zsh modemmanager usb_modeswitch
-echo "Generating initramfs"
-cp /etc/mkinitcpio.conf /etc/mkinitcpio.conf.b
+echo "----------Generating initramfs------------------"
 sed -i 's/^MODULES.*/MODULES=(btrfs)/' /etc/mkinitcpio.conf
 sed -i 's/^HOOKS.*/HOOKS="base udev autodetect modconf block encrypt filesystems keyboard"/' /etc/mkinitcpio.conf
 mkinitcpio -p linux
+echo "---------GRUB INSTALL-------------------------"
 grub-install --target=x86_64-efi --bootloader-id=grub_uefi --recheck
 grub-mkconfig -o /boot/grub/grub.cfg
-systemctl enable NetworkManager
-systemctl enable bluetooth
-systemctl enable ModemManager.service
-echo "GENERATEUSER"
-echo "%wheel ALL=(ALL:ALL) ALL" >> /etc/sudoers
-useradd --create-home ${uservar}
-echo ${uservar}:${userpassvar} | chpasswd
-usermod -aG wheel ${uservar}
-systemctl enable sshd
-localectl set-locale ru_RU.UTF-8
-echo "FONT=cyr-sun16" >> /etc/vconsole.conf
-echo "KEYMAP=ru"  >> /etc/vconsole.conf
-echo "YAY CD"
-cd /opt
-echo "YAY CLONE"
-git clone https://aur.archlinux.org/yay-git.git
-chown -R ${uservar}:${uservar} ./yay-git
-cd /opt/yay-git
 sed -i 's/^GRUB_CMDLINE_LINUX_DEFAULT.*/GRUB_CMDLINE_LINUX_DEFAULT="loglevel=3 quiet cryptdevice=UUID='$(blkid -s UUID -o value /dev/${ndiskvar}4)':cryptroot root=\/dev\/mapper\/cryptroot"/' /etc/default/grub
 echo "GRUB_ENABLE_CRYPTODISK=y" >> /etc/default/grub
 grub-mkconfig -o /boot/grub/grub.cfg
+echo "---------GENERATEUSER-------------------------"
+echo "%wheel ALL=(ALL:ALL) ALL" >> /etc/sudoers
+useradd --create-home -s /bin/zsh ${uservar}
+echo ${uservar}:${userpassvar} | chpasswd
+usermod -aG wheel ${uservar}
+echo "---------ENABLE SERVICES---------------------"
+systemctl enable sshd
+systemctl enable NetworkManager
+systemctl enable bluetooth
+systemctl enable ModemManager.service
+echo "----------YAY CD-----------------------------"
+cd /opt
+git clone https://aur.archlinux.org/yay-git.git
+chown -R ${uservar}:${uservar} ./yay-git
+cd /opt/yay-git
 su ${uservar}
 yes | makepkg -si
 EOF
@@ -146,7 +130,7 @@ EOF
 
 
 #echo "en_US.UTF-8 UTF-8" > /etc/locale.gen
-
+#localectl set-locale ru_RU.UTF-8
 
 
 #grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=GRUB
