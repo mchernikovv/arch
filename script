@@ -114,13 +114,17 @@ systemctl enable sshd
 systemctl enable NetworkManager
 systemctl enable bluetooth
 systemctl enable ModemManager.service
-echo "----------YAY CD-----------------------------"
+echo "blacklist    pcspkr" >> /etc/modprobe.d/nobeep/conf
+echo "----------YAY OHMYZSH-----------------------------"
 cd /opt
 git clone https://aur.archlinux.org/yay-git.git
 chown -R ${uservar}:${uservar} ./yay-git
 cd /opt/yay-git
 su ${uservar}
 yes | makepkg -si
+cd ~
+sh -c "$(curl -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
+sed -i 's/^ZSH_THEME.*/ZSH_THEME="darkblood"/' ~/.zshrc
 EOF
 
 #blkid uuid sda/nvme 1 add to /etc/fstab
