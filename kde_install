@@ -4,6 +4,8 @@ sed -i 's/^ZSH_THEME.*/ZSH_THEME="strug"/' ~/.zshrc
 sudo pacman -S plasma-desktop sddm mc plasma-nm plasma-pa nautilus gnome-keyring libsecret konsole kdeplasma-addons kde-gtk-config xf86-input-synaptics
 yay google-chrome
 yay timeshift
+yay vlc 
+yay telegram
 sudo systemctl enable sddm
 yay vs code
 
