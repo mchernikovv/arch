@@ -1,3 +1,21 @@
 #!/bin/bash
 sh -c "$(curl -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
 sed -i 's/^ZSH_THEME.*/ZSH_THEME="strug"/' ~/.zshrc
+sudo pacman -S plasma sddm kde-applications mc gnome-keyring 
+pacman -S xf86-input-synaptics
+#pacman -S nvidia nvidia-settings 
+yay google-chrome
+yay timeshift
+yay telegram
+yay anydesk
+#yay discord
+sudo systemctl enable sddm
+yay vs code
+git config --global user.name "max"
+git config --global user.email mchernikovv@gmail.com
+#sudo nvidia-xconfig -a --cool-bits=28 --allow-empty-initial-configuration
+#sudo mv /etc/X11/xorg.conf /usr/share/X11/xorg.conf.d/nvidia.conf
+
+
+#sudo pacman -Rcns telepathy-accounts-signon\
+#sudo pacman -Rcns telepathy-farstream\
